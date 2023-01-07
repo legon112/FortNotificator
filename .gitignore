@@ -2,3 +2,6 @@ venv
 задачи.txt
 .env
 __pycache__
+test.py
+test.txt
+test2.txt

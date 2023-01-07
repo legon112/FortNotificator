@@ -1,6 +1,6 @@
 import logging
 
-from FortFunc import all_shop
+from FortFunc import all_shop, answerfiltshop, answer_type_shop
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
@@ -17,25 +17,43 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 
 class Form(StatesGroup):
     shop = State()
-
+    shop_cost_filt = State()
+    shop_type_filt = State()
 
 
 main_keyboard = types.ReplyKeyboardMarkup()
 shop_keyboard = types.ReplyKeyboardMarkup()
+clear_filt_shop_keyboard = types.InlineKeyboardMarkup()
 shop_ikeyboard = types.InlineKeyboardMarkup()
+type_filt_ikeyboard = types.InlineKeyboardMarkup()
 
+start_button = types.KeyboardButton('/start')
 shop_button = types.KeyboardButton('/shop')
 exit_button = types.KeyboardButton('/exit')
 search_button  = types.KeyboardButton('/search')
+clear_button = types.InlineKeyboardButton('Очистити фільтр', callback_data='clear')
 notification_button = types.KeyboardButton('/notification')
 all_shop_button = types.InlineKeyboardButton('Увесь магазин', callback_data='all')
 cost_shop_button = types.InlineKeyboardButton('По ціні', callback_data='cost')
-type_shop_button = types.InlineKeyboardButton('По типу предмета', callback_data='cost')
+type_shop_button = types.InlineKeyboardButton('По типу предмета', callback_data='type')
+outfit_button = types.InlineKeyboardButton('Hаряд', callback_data='outfit')
+glider_button = types.InlineKeyboardButton('Дельтаплан', callback_data='glider')
+pickaxe_button = types.InlineKeyboardButton('Кирка', callback_data='pickaxe')
+emote_button = types.InlineKeyboardButton('Емоція', callback_data='emote')
+wrap_button = types.InlineKeyboardButton('Обгортка', callback_data='wrap')
+backpack_button = types.InlineKeyboardButton('Наплічник', callback_data='backpack')
+contrail_button = types.InlineKeyboardButton('Слід', callback_data='contrail')
+save_button = types.InlineKeyboardButton('Зберегти', callback_data='save')
 
 
 main_keyboard.add(shop_button, search_button, notification_button)
 shop_keyboard.add(exit_button)
 shop_ikeyboard.add(all_shop_button, cost_shop_button, type_shop_button)
+clear_filt_shop_keyboard.add(clear_button)
+type_filt_ikeyboard.add(clear_button, outfit_button, glider_button, pickaxe_button, emote_button, wrap_button, backpack_button, contrail_button, save_button)
+
+
+filt_dict = {}
 
 
 @dp.message_handler(commands=['start'], state = '*')
@@ -55,15 +73,57 @@ async def send_welcome(message: types.Message):
 @dp.message_handler(commands=['shop'])
 async def shop(message: types.Message, state: FSMContext):
     await Form.shop.set()
-    await message.answer('Які фільтри ви хочете застосувати:', reply_markup= shop_ikeyboard)
-
+    await message.answer(answerfiltshop(filt_dict), reply_markup= shop_ikeyboard)
+    
 @dp.callback_query_handler(state=Form.shop)
 async def value_query(query: types.CallbackQuery, state: FSMContext):
     if query.data == 'all':
-        await query.message.edit_text(all_shop())
-    
-    
+        await query.message.edit_text(all_shop())        
+    elif query.data == 'cost':
+        await Form.shop_cost_filt.set()
+        await query.message.edit_text('Введить ціну(1500) або від та до(1000-1500) якої ціни предмети вас цікавлять, clear - скидання фільтра', reply_markup=clear_filt_shop_keyboard)
+    elif query.data == 'type':
+        await Form.shop_type_filt.set()
+        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=type_filt_ikeyboard)
 
+@dp.callback_query_handler(state=Form.shop_type_filt)
+async def type_query(query: types.CallbackQuery, state: FSMContext):
+    all_type = ('glider', 'outfit', 'wrap', 'backpack', 'pickaxe', 'emote', 'contrail')
+    if query.data == 'clear':        
+        if 'type' in filt_dict.keys():
+            filt_dict.pop('type')
+        await Form.shop.set()
+        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=type_filt_ikeyboard)
+    elif query.data == 'save':
+        await Form.shop.set()
+        await query.message.edit_text(answerfiltshop(filt_dict), reply_markup= shop_ikeyboard) 
+    elif query.data in all_type:
+        if 'type' in filt_dict.keys():
+            filt_dict['type'].add(query.data)
+        else:
+            filt_dict['type'] = {query.data}
+        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=type_filt_ikeyboard)
+
+
+
+@dp.callback_query_handler(state=Form.shop_cost_filt)
+async def cost_query(query: types.CallbackQuery, state: FSMContext):
+    if query.data == 'clear':        
+        if 'cost' in filt_dict.keys():
+            filt_dict.pop('cost')
+        await Form.shop.set()
+        await query.message.edit_text(answerfiltshop(filt_dict), reply_markup= shop_ikeyboard)
+
+@dp.message_handler(state=Form.shop_cost_filt)
+async def cost_filt_shop(message: types.Message, state: FSMContext):
+    filt_message = message.text.replace('-', ' ')
+    filt_list = [int(i) for i in filt_message.split()]
+    if filt_message.replace(' ','').isdigit() and len(filt_list) <= 2:        
+        filt_list = sorted(filt_list)
+        filt_dict.update({'cost' : filt_list})
+    await Form.shop.set()
+    await message.answer(answerfiltshop(filt_dict), reply_markup= shop_ikeyboard)
+    
 
 
 @dp.message_handler()

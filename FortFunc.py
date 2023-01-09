@@ -1,3 +1,5 @@
+import asyncio
+import datetime
 import json
 import requests
 
@@ -10,33 +12,84 @@ API_TOKEN = config('FORT_API_TOKEN')
 
 all_type_dict = {'glider' : 'Дельтоплан', 'outfit' : 'Наряд', 'wrap' : "Обгортка", 'backpack' : 'Наплічник', 'pickaxe' : "Кирка", 'emote' : 'Емоція', 'contrail' : 'Слід'}
 
-with open('br.json', 'r', encoding='utf-8') as f:
-    all_all = json.loads(f.read())
-# b = requests.get(url='https://fortnite-api.com/v2/shop/br/combined?language=ru',headers= {'Authorization' : API_TOKEN}).json()
-with open('combinen.json', 'r', encoding='utf-8') as f:
-    data = f.read()
-    b = json.loads(data)
+
+
+all_all = []
 dict_all = {}
+all_shopp = {}
 all_rarity_dict = {}
 all_list = []
-for i in range(len(b['data']['featured']['entries'])):
-    item = b['data']['featured']['entries'][i]
-    if item['bundle']:
-        namee = item['bundle']['name']
-    else:
-        namee = item['items'][0]['name']
-        all_rarity_dict.update({item['items'][0]['rarity']['value'] : item['items'][0]['rarity']['displayValue']})
-    price = item['finalPrice']
-    rarity = item['items'][0]['rarity']['value']
-    typee = item['items'][0]['type']['value']
-    dict_all.update({namee : {'price' : price, 'type' : typee, 'rarity' : rarity}})
-    
+update = True
+
+def onstartup():
+    global all_all
+    global dict_all 
+    global all_shopp
+    global all_rarity_dict
+    global update
+    categories = ['entries', 'daily']
+    json_shop_file = 'combinen.json'
+    json_br_file = 'br.json'
+    json_update_file = 'timeupdate.json'
+    d1 = datetime.datetime.utcnow()
+    try:
+        with open(json_update_file, 'r+', encoding='utf-8') as f:
+            data = f.read()
+            time_update = json.loads(data)
+        time_update = datetime.datetime(time_update[0], time_update[1], time_update[2])
+        last_update = True           
+        d2 = [time_update.year, time_update.month, time_update.day]
+        with open(json_update_file, "w", encoding='utf-8') as outfile:
+            outfile.write(json.dumps(d1))        
+    except:
+        last_update = False
+        d2 = [d1.year, d1.month, d1.day]
+        with open(json_update_file, "w", encoding='utf-8') as outfile:
+            outfile.write(json.dumps(d2))
+            
+    if last_update:
+        now_date = datetime.datetime.utcnow()
+        if (now_date-time_update).days >= 1:
+            all_shopp = requests.get(url='https://fortnite-api.com/v2/shop/br/combined?language=ru',headers= {'Authorization' : API_TOKEN}).json()
+            with open(json_shop_file, "w") as outfile:
+                outfile.write(json.dumps(all_shopp))
+            all_all = requests.get(url='https://fortnite-api.com/v2/cosmetics/br?language=ru',headers= {'Authorization' : API_TOKEN}).json()
+            with open(json_br_file, "w") as outfile:
+                outfile.write(json.dumps(all_all))
+            update = True
+    else: 
+        if not all_all or not all_shopp:
+            with open(json_br_file, 'r', encoding='utf-8') as f:
+                data = f.read()
+                all_all = json.loads(data)        
+            with open(json_shop_file, 'r', encoding='utf-8') as f:
+                data = f.read()
+                all_shopp = json.loads(data)
+    if update:
+        for it in categories:
+            for i in range(len(all_shopp['data']['featured'][it])):
+                item = all_shopp['data']['featured']['entries'][i]
+                if item['bundle']:
+                    namee = item['bundle']['name']
+                else:
+                    namee = item['items'][0]['name']
+                    all_rarity_dict.update({item['items'][0]['rarity']['value'] : item['items'][0]['rarity']['displayValue']})
+                price = item['finalPrice']
+                rarity = item['items'][0]['rarity']['value']
+                typee = item['items'][0]['type']['value']
+                dict_all.update({namee : {'price' : price, 'type' : typee, 'rarity' : rarity}})
+                update = False
+
     
 def searchfn(item: str) -> dict:
     items = all_all['data']
     for i in range(len(items)):
         if items[i]['name'].lower() == item.lower():
-            return {'result': True, 'name' : items[i]['name'], 'image' : items[i]['images']["featured"], 'value' : items[i]["rarity"]["displayValue"], 'series' : items[i]['set']['value'], 'description' : items[i]['description']}
+            try:
+                answer = {'result': True, 'name' : items[i]['name'], 'image' : items[i]['images']["featured"], 'value' : items[i]["rarity"]["displayValue"], 'series' : items[i]['set']['value'], 'description' : items[i]['description']}
+            except:
+                answer = {'result': True, 'name' : items[i]['name'], 'image' : items[i]['images']["icon"], 'value' : items[i]["rarity"]["displayValue"], 'series' : '-', 'description' : items[i]['description']}
+            return answer
     return {'result' : False}
     
 def result_shop(filt : dict) -> str:

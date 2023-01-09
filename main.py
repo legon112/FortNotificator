@@ -1,6 +1,7 @@
+import asyncio
 import logging
 
-from FortFunc import all_shop, answerfiltshop, answer_type_shop, inline_rarity, all_rarity_dict, answer_rarity_shop, result_shop, searchfn
+from FortFunc import all_shop, answerfiltshop, answer_type_shop, inline_rarity, all_rarity_dict, answer_rarity_shop, result_shop, searchfn, onstartup
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
@@ -50,7 +51,7 @@ save_button = types.InlineKeyboardButton('Зберегти', callback_data='save
 result_button = types.InlineKeyboardButton('Результат', callback_data='result')
 
 
-main_keyboard.add(shop_button, search_button, notification_button)
+main_keyboard.add(start_button ,shop_button, search_button, notification_button)
 shop_keyboard.add(exit_button)
 shop_ikeyboard.add(all_shop_button, cost_shop_button, type_shop_button, rarity_button, result_button)
 clear_filt_shop_keyboard.add(clear_button)
@@ -61,12 +62,15 @@ type_filt_ikeyboard.add(clear_button, outfit_button, glider_button, pickaxe_butt
 
 
 filt_dict = {}
-
+    
 
 @dp.message_handler(commands=['start'], state = '*')
 async def send_welcome(message: types.Message, state: FSMContext):
     await state.finish()
     await message.reply("Привіт, я бот для магазину фортнайт\nТут можешь знайти інформацію про різні предмети, актуальний магазин та можешь встановити сповіщення на наявність певних предметів\n/help - усі команди", reply_markup=main_keyboard)
+    while True:
+        onstartup()
+        await asyncio.sleep(300)
 
 @dp.message_handler(commands=['help'])
 async def send_welcome(message: types.Message):
@@ -80,7 +84,7 @@ async def send_welcome(message: types.Message):
 @dp.message_handler(commands=['search'], state = '*')
 async def shop(message: types.Message, state: FSMContext):
     await Form.search.set()
-    await message.answer('Введите точное название предмета:',reply_markup=exit_keyboard)
+    await message.answer('Введите точное название предмета\n/exit - выход:',reply_markup=exit_keyboard)
 
 @dp.message_handler(commands=['exit'], state = Form.search)
 async def shop(message: types.Message, state: FSMContext):
@@ -183,6 +187,7 @@ async def cost_filt_shop(message: types.Message, state: FSMContext):
 @dp.message_handler()
 async def echo(message: types.Message):
     pass
+    
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)

@@ -5,7 +5,7 @@ import requests
 
 from aiogram import types
 from decouple import config
-from sys import getsizeof
+from os.path import exists
 
 API_TOKEN = config('FORT_API_TOKEN')
 
@@ -14,49 +14,67 @@ all_type_dict = {'glider' : 'Дельтоплан', 'outfit' : 'Наряд', 'wr
 
 
 
-all_all = []
+all_all = {}
 dict_all = {}
 all_shopp = {}
 all_rarity_dict = {}
 all_list = []
 update = True
+notification_dict = {}
+read_file = True
+json_notification_file = 'notification.json'
 
-def onstartup():
+def onstartup() -> bool:
+    global read_file
     global all_all
     global dict_all 
     global all_shopp
     global all_rarity_dict
     global update
-    categories = ['entries', 'daily']
-    json_shop_file = 'combinen.json'
+    global notification_dict
+    categories = ['featured', 'daily']
+    json_shop_file = 'combined.json'
     json_br_file = 'br.json'
     json_update_file = 'timeupdate.json'
     d1 = datetime.datetime.utcnow()
+    time_update = datetime.datetime.utcnow()
+    #Вытаскивание последней даты обновления
     try:
         with open(json_update_file, 'r+', encoding='utf-8') as f:
             data = f.read()
             time_update = json.loads(data)
-        time_update = datetime.datetime(time_update[0], time_update[1], time_update[2])
-        last_update = True           
+        time_update = datetime.datetime(time_update[0], time_update[1], time_update[2])         
         d2 = [time_update.year, time_update.month, time_update.day]
         with open(json_update_file, "w", encoding='utf-8') as outfile:
-            outfile.write(json.dumps(d1))        
+            outfile.write(json.dumps(d2))
     except:
-        last_update = False
         d2 = [d1.year, d1.month, d1.day]
         with open(json_update_file, "w", encoding='utf-8') as outfile:
             outfile.write(json.dumps(d2))
+        
+             
+        #Вытаскивание информации про уведомления
+    if read_file: 
+        try:
+            with open(json_notification_file, 'r+', encoding='utf-8') as f:
+                data = f.read()
+                notification_dict = json.loads(data)
+        except:
+            pass
+            open(json_notification_file, "w")
+        read_file = False
+    
             
-    if last_update:
-        now_date = datetime.datetime.utcnow()
-        if (now_date-time_update).days >= 1:
-            all_shopp = requests.get(url='https://fortnite-api.com/v2/shop/br/combined?language=ru',headers= {'Authorization' : API_TOKEN}).json()
-            with open(json_shop_file, "w") as outfile:
-                outfile.write(json.dumps(all_shopp))
-            all_all = requests.get(url='https://fortnite-api.com/v2/cosmetics/br?language=ru',headers= {'Authorization' : API_TOKEN}).json()
-            with open(json_br_file, "w") as outfile:
-                outfile.write(json.dumps(all_all))
-            update = True
+            
+    #Проверка, обновился на то, обновился ли магазин; Обновление инфы
+    if (d1-time_update).days >= 1 or not exists(json_br_file) or not exists(json_shop_file):
+        all_shopp = requests.get(url='https://fortnite-api.com/v2/shop/br/combined?language=ru',headers= {'Authorization' : API_TOKEN}).json()
+        with open(json_shop_file, "w", encoding='utf-8') as outfile:
+            outfile.write(json.dumps(all_shopp))
+        all_all = requests.get(url='https://fortnite-api.com/v2/cosmetics/br?language=ru',headers= {'Authorization' : API_TOKEN}).json()
+        with open(json_br_file, "w", encoding='utf-8') as outfile:
+            outfile.write(json.dumps(all_all))
+        update = True
     else: 
         if not all_all or not all_shopp:
             with open(json_br_file, 'r', encoding='utf-8') as f:
@@ -65,10 +83,11 @@ def onstartup():
             with open(json_shop_file, 'r', encoding='utf-8') as f:
                 data = f.read()
                 all_shopp = json.loads(data)
+    #Обновление словаря с предметами из магазина   
     if update:
         for it in categories:
-            for i in range(len(all_shopp['data']['featured'][it])):
-                item = all_shopp['data']['featured']['entries'][i]
+            for i in range(len(all_shopp["data"][it]['entries'])):
+                item = all_shopp['data'][it]['entries'][i]
                 if item['bundle']:
                     namee = item['bundle']['name']
                 else:
@@ -79,7 +98,54 @@ def onstartup():
                 typee = item['items'][0]['type']['value']
                 dict_all.update({namee : {'price' : price, 'type' : typee, 'rarity' : rarity}})
                 update = False
+        #Рассылка
+        for_people_dict = {}
+        notif_list = list(notification_dict.keys())
+        for i in notif_list:
+            if i in dict_all.keys():
+                for_people_dict[i] = notification_dict[i]               
+                notification_dict.pop(i)
+        with open(json_notification_file, "w", encoding='utf-8') as outfile:
+            outfile.write(json.dumps(notification_dict))
+        return [True, for_people_dict]
+    return [False]
 
+def notfic_ikeyboard(id):
+    keyboard = types.InlineKeyboardMarkup()
+    for i in notification_dict.keys():
+        id_list = notification_dict[i]
+        if id in id_list:
+            keyboard.add(types.InlineKeyboardButton(i, callback_data=i))
+    return keyboard
+
+def del_notif(item : str, id):
+    change = False  
+    if id in notification_dict[item]:
+        notification_dict[item].remove(id)
+        change= True
+    if not notification_dict[item]:
+        notification_dict.pop(item)
+        change = True
+    if change:
+        with open(json_notification_file, "w", encoding='utf-8') as outfile:
+            outfile.write(json.dumps(notification_dict))
+
+def track(item : str, id : str or int):
+    global notification_dict
+    item_names = list(notification_dict.keys())
+    counter = False
+    if not item in item_names:
+        notification_dict[item] = [id]
+        counter = True
+    elif not id in notification_dict[item]:
+        notification_dict[item].append(id)
+        counter = True
+    if counter:
+        with open(json_notification_file, "w") as outfile:
+            outfile.write(json.dumps(notification_dict))
+    
+    
+    
     
 def searchfn(item: str) -> dict:
     items = all_all['data']

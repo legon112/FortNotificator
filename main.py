@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from FortFunc import all_shop, answerfiltshop, answer_type_shop, inline_rarity, all_rarity_dict, answer_rarity_shop, result_shop, searchfn, onstartup
+from FortFunc import all_shop, answerfiltshop, answer_type_shop, inline_rarity, all_rarity_dict, answer_rarity_shop, result_shop, searchfn, onstartup, track, notfic_ikeyboard, del_notif
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
@@ -18,6 +18,7 @@ dp = Dispatcher(bot, storage=MemoryStorage())
 
 class Form(StatesGroup):
     search = State()
+    notnotification = State()
     shop = State()
     shop_cost_filt = State()
     shop_type_filt = State()
@@ -29,6 +30,7 @@ shop_keyboard = types.ReplyKeyboardMarkup()
 clear_filt_shop_keyboard = types.InlineKeyboardMarkup()
 shop_ikeyboard = types.InlineKeyboardMarkup()
 type_filt_ikeyboard = types.InlineKeyboardMarkup()
+track_ikeyboard = types.InlineKeyboardMarkup()
 
 start_button = types.KeyboardButton('/start')
 shop_button = types.KeyboardButton('/shop')
@@ -49,6 +51,7 @@ backpack_button = types.InlineKeyboardButton('Наплічник', callback_data
 contrail_button = types.InlineKeyboardButton('Слід', callback_data='contrail')
 save_button = types.InlineKeyboardButton('Зберегти', callback_data='save')
 result_button = types.InlineKeyboardButton('Результат', callback_data='result')
+track_button = types.InlineKeyboardButton('Відстежувати', callback_data='track')
 
 
 main_keyboard.add(start_button ,shop_button, search_button, notification_button)
@@ -57,11 +60,12 @@ shop_ikeyboard.add(all_shop_button, cost_shop_button, type_shop_button, rarity_b
 clear_filt_shop_keyboard.add(clear_button)
 exit_keyboard = main_keyboard
 exit_keyboard.add(exit_button)
-
+track_ikeyboard.add(track_button)
 type_filt_ikeyboard.add(clear_button, outfit_button, glider_button, pickaxe_button, emote_button, wrap_button, backpack_button, contrail_button, save_button)
 
 
 filt_dict = {}
+notification_answer = '*Управління сповіщеннями*\nДля видалення предмету зі списку сповіщень, натисніть на назву предмата:'
     
 
 @dp.message_handler(commands=['start'], state = '*')
@@ -69,15 +73,34 @@ async def send_welcome(message: types.Message, state: FSMContext):
     await state.finish()
     await message.reply("Привіт, я бот для магазину фортнайт\nТут можешь знайти інформацію про різні предмети, актуальний магазин та можешь встановити сповіщення на наявність певних предметів\n/help - усі команди", reply_markup=main_keyboard)
     while True:
-        onstartup()
+        answer = onstartup()
+        if answer[0]:            
+            items = answer[1]
+            for i in items.keys():
+                for it in items[i]:
+                    await bot.send_message(it,f'Хей, {i} зараз у магазині! Нумо його купувати)')            
         await asyncio.sleep(300)
 
 @dp.message_handler(commands=['help'])
 async def send_welcome(message: types.Message):
     await message.reply('/start - повернення на початок\n\
             /shop – перехід у стан магазину, в ньому можна отримати список усіх предметів у магазині з ціною(не дуже зручно, тому що кожен день у середньому в магазині ~90 предметів), можна виставляти фільтри по ціні.\
-            /search – перехід у стан пошуку, в ньому користувач вводить назву предмета, а бот відправляє інформацію про предмет\
-            /notification – перехід у стан сповіщення, в ньому можна написати назву предмета, потім, коли цей предмет з’явиться у магазині, прийде сповішення про його наявність.')
+            /search – перехід у стан пошуку, в ньому користувач вводить назву предмета, а бот відправляє інформацію про предмет, завдяки кнопці "Відстежувати" предмет можна додати у список сповіщень\
+            /notification – перехід у стан сповіщення, контроль предметів у списку сповіщень')
+
+
+
+'''!!!notification!!!'''
+@dp.message_handler(commands=['notification'], state = '*')
+async def shop(message: types.Message, state: FSMContext):
+    await Form.notnotification.set()
+    await message.answer(notification_answer, 'Markdown', reply_markup=notfic_ikeyboard(message.chat.id))
+
+@dp.callback_query_handler(state=Form.notnotification)
+async def value_query(query: types.CallbackQuery, state: FSMContext):
+    del_notif(query.data, query.message.chat.id)
+    await query.message.edit_text(notification_answer, 'Markdown', reply_markup=notfic_ikeyboard(query.message.chat.id))
+    
 
 
 '''!!!SEARCH!!!'''
@@ -99,9 +122,19 @@ async def shop(message: types.Message, state: FSMContext):
         ans_2 = 'value'
         ans_3 = 'series'
         ans_4 = 'description'
-        await bot.send_photo(message.chat.id, result['image'], f'*{result.get(ans_1)}*\n\n*Редкость*: {result.get(ans_2)}\n*Серия*: {result.get(ans_3)}\n*Описание*: {result.get(ans_4)}', 'Markdown')
+        async with state.proxy() as data:
+            data['track'] = result[ans_1]
+        await bot.send_photo(message.chat.id, result['image'], f'*{result.get(ans_1)}*\n\n*Редкость*: {result.get(ans_2)}\n*Серия*: {result.get(ans_3)}\n*Описание*: {result.get(ans_4)}', 'Markdown', reply_markup=track_ikeyboard)
     else:
         await message.answer('Предмет не найден')
+        
+@dp.callback_query_handler(state=Form.search)
+async def value_query(query: types.CallbackQuery, state: FSMContext):
+    if query.data == 'track':
+        async with state.proxy() as data:   
+            item = data['track']
+        track(item, query.message.chat.id)
+        await query.message.answer(f'{item} тепер відстежуеється')
 '''!!!END  SEARCH!!!'''
 
 

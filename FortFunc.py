@@ -44,7 +44,7 @@ def onstartup() -> bool:
             data = f.read()
             time_update = json.loads(data)
         time_update = datetime.datetime(time_update[0], time_update[1], time_update[2])         
-        d2 = [time_update.year, time_update.month, time_update.day]
+        d2 = [d1.year, d1.month, d1.day]
         with open(json_update_file, "w", encoding='utf-8') as outfile:
             outfile.write(json.dumps(d2))
     except:

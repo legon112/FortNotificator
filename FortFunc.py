@@ -24,6 +24,7 @@ notification_dict = {}
 read_file = True
 json_notification_file = 'notification.json'
 
+
 def onstartup() -> bool:
     global read_file
     global all_all
@@ -203,15 +204,37 @@ def answer_rarity_shop(filt : dict) -> str:
         answers_list.append(f'Поточні фільтри:\n{filt_message}')
     answers_list.append('\nОберіть яка рідкість предметів вас цікавять:')
     return ''.join(answers_list) 
-    
-def inline_rarity():
+
+def inline_type(filt_dict : dict):
+    all_type = {'outfit' : "Наряд", 'glider' : 'Дельтаплан', 'pickaxe' : 'Кирка', 'emote' : 'Емоція', 'wrap' : 'Обгортка', 'backpack' : 'Наплічник', 'contrail' : 'Слід'}
+    type_ikeyboard = types.InlineKeyboardMarkup()
+    type_ikeyboard.add(types.InlineKeyboardButton('Очистити фільтр', callback_data='clear'))
+    if filt_dict and filt_dict['type']:
+        for i in all_type.keys():
+            if i in filt_dict['type']:
+                continue
+            type_ikeyboard.add(types.InlineKeyboardButton(all_type[i], callback_data=i))
+        type_ikeyboard.add(types.InlineKeyboardButton('Зберегти', callback_data='save'))
+    else:
+        for i in all_type.keys():
+            type_ikeyboard.add(types.InlineKeyboardButton(all_type[i], callback_data=i))
+        type_ikeyboard.add(types.InlineKeyboardButton('Зберегти', callback_data='save'))
+    return type_ikeyboard
+
+def inline_rarity(filt_dict : dict):
     rarity_ikeyboard = types.InlineKeyboardMarkup()
     
-    rarity_ikeyboard.add(types.InlineKeyboardButton('Очистити фільтр', callback_data='clear')) 
-    # rarity_ikeyboard.add
-    for i in all_rarity_dict.keys():
-        rarity_ikeyboard.add(types.InlineKeyboardButton(all_rarity_dict[i], callback_data=i))
-    rarity_ikeyboard.add(types.InlineKeyboardButton('Зберегти', callback_data='save'))
+    rarity_ikeyboard.add(types.InlineKeyboardButton('Очистити фільтр', callback_data='clear'))
+    if filt_dict and filt_dict['rarity']:
+        for i in all_rarity_dict.keys():
+            if i in filt_dict['rarity']:
+                continue
+            rarity_ikeyboard.add(types.InlineKeyboardButton(all_rarity_dict[i], callback_data=i))
+        rarity_ikeyboard.add(types.InlineKeyboardButton('Зберегти', callback_data='save'))
+    else:
+        for i in all_rarity_dict.keys():
+            rarity_ikeyboard.add(types.InlineKeyboardButton(all_rarity_dict[i], callback_data=i))
+        rarity_ikeyboard.add(types.InlineKeyboardButton('Зберегти', callback_data='save'))
     return rarity_ikeyboard
     
     

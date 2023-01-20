@@ -1,12 +1,13 @@
 import asyncio
 import logging
 
-from FortFunc import all_shop, answerfiltshop, answer_type_shop, inline_rarity, all_rarity_dict, answer_rarity_shop, result_shop, searchfn, onstartup, track, notfic_ikeyboard, del_notif
+from FortFunc import all_shop, answerfiltshop, answer_type_shop, inline_rarity, all_rarity_dict, answer_rarity_shop, result_shop, searchfn, onstartup, track, notfic_ikeyboard, del_notif, inline_type
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from decouple import config
+from Keyboards import shop_ikeyboard, clear_filt_shop_keyboard, track_ikeyboard, type_filt_ikeyboard
 
 API_TOKEN = config('API_TOKEN')
 
@@ -25,68 +26,28 @@ class Form(StatesGroup):
     shop_rarity_filt = State()
 
 
-main_keyboard = types.ReplyKeyboardMarkup()
-shop_keyboard = types.ReplyKeyboardMarkup()
-clear_filt_shop_keyboard = types.InlineKeyboardMarkup()
-shop_ikeyboard = types.InlineKeyboardMarkup()
-type_filt_ikeyboard = types.InlineKeyboardMarkup()
-track_ikeyboard = types.InlineKeyboardMarkup()
-
-start_button = types.KeyboardButton('/start')
-shop_button = types.KeyboardButton('/shop')
-exit_button = types.KeyboardButton('/exit')
-search_button  = types.KeyboardButton('/search')
-clear_button = types.InlineKeyboardButton('Очистити фільтр', callback_data='clear')
-notification_button = types.KeyboardButton('/notification')
-all_shop_button = types.InlineKeyboardButton('Увесь магазин', callback_data='all')
-cost_shop_button = types.InlineKeyboardButton('По ціні', callback_data='price')
-type_shop_button = types.InlineKeyboardButton('По типу предмета', callback_data='type')
-rarity_button = types.InlineKeyboardButton('По рідкості', callback_data="rarity")
-outfit_button = types.InlineKeyboardButton('Hаряд', callback_data='outfit')
-glider_button = types.InlineKeyboardButton('Дельтаплан', callback_data='glider')
-pickaxe_button = types.InlineKeyboardButton('Кирка', callback_data='pickaxe')
-emote_button = types.InlineKeyboardButton('Емоція', callback_data='emote')
-wrap_button = types.InlineKeyboardButton('Обгортка', callback_data='wrap')
-backpack_button = types.InlineKeyboardButton('Наплічник', callback_data='backpack')
-contrail_button = types.InlineKeyboardButton('Слід', callback_data='contrail')
-save_button = types.InlineKeyboardButton('Зберегти', callback_data='save')
-result_button = types.InlineKeyboardButton('Результат', callback_data='result')
-track_button = types.InlineKeyboardButton('Відстежувати', callback_data='track')
-
-
-main_keyboard.add(start_button ,shop_button, search_button, notification_button)
-shop_keyboard.add(exit_button)
-shop_ikeyboard.add(all_shop_button, cost_shop_button, type_shop_button, rarity_button, result_button)
-clear_filt_shop_keyboard.add(clear_button)
-exit_keyboard = main_keyboard
-exit_keyboard.add(exit_button)
-track_ikeyboard.add(track_button)
-type_filt_ikeyboard.add(clear_button, outfit_button, glider_button, pickaxe_button, emote_button, wrap_button, backpack_button, contrail_button, save_button)
-
 
 filt_dict = {}
 notification_answer = '*Управління сповіщеннями*\nДля видалення предмету зі списку сповіщень, натисніть на назву предмата:'
-    
+
+async def start():
+    while True:
+            answer = onstartup()
+            if answer[0]:            
+                items = answer[1]
+                for i in items.keys():
+                    for it in items[i]:
+                        await bot.send_message(it,f'Хей, {i} зараз у магазині! Нумо його купувати)')        
+            await asyncio.sleep(300)
 
 @dp.message_handler(commands=['start'], state = '*')
 async def send_welcome(message: types.Message, state: FSMContext):
     await state.finish()
-    await message.reply("Привіт, я бот для магазину фортнайт\nТут можешь знайти інформацію про різні предмети, актуальний магазин та можешь встановити сповіщення на наявність певних предметів\n/help - усі команди", reply_markup=main_keyboard)
-    while True:
-        answer = onstartup()
-        if answer[0]:            
-            items = answer[1]
-            for i in items.keys():
-                for it in items[i]:
-                    await bot.send_message(it,f'Хей, {i} зараз у магазині! Нумо його купувати)')            
-        await asyncio.sleep(300)
+    await message.reply("Привіт, я бот для магазину фортнайт\nТут можешь знайти інформацію про різні предмети, актуальний магазин та можешь встановити сповіщення на наявність певних предметів\n/help - усі команди", reply_markup=types.ReplyKeyboardRemove())
 
 @dp.message_handler(commands=['help'])
 async def send_welcome(message: types.Message):
-    await message.reply('/start - повернення на початок\n\
-            /shop – перехід у стан магазину, в ньому можна отримати список усіх предметів у магазині з ціною(не дуже зручно, тому що кожен день у середньому в магазині ~90 предметів), можна виставляти фільтри по ціні.\
-            /search – перехід у стан пошуку, в ньому користувач вводить назву предмета, а бот відправляє інформацію про предмет, завдяки кнопці "Відстежувати" предмет можна додати у список сповіщень\
-            /notification – перехід у стан сповіщення, контроль предметів у списку сповіщень')
+    await message.reply('/start - повернення на початок\n/shop – перехід у стан магазину, в ньому можна отримати список усіх предметів у магазині з ціною(не дуже зручно, тому що кожен день у середньому в магазині ~90 предметів), можна виставляти фільтри по ціні.\n/search – перехід у стан пошуку, в ньому користувач вводить назву предмета, а бот відправляє інформацію про предмет, завдяки кнопці "Відстежувати" предмет можна додати у список сповіщень\n/notification – перехід у стан сповіщення, контроль предметів у списку сповіщень')
 
 
 
@@ -98,8 +59,11 @@ async def shop(message: types.Message, state: FSMContext):
 
 @dp.callback_query_handler(state=Form.notnotification)
 async def value_query(query: types.CallbackQuery, state: FSMContext):
-    del_notif(query.data, query.message.chat.id)
-    await query.message.edit_text(notification_answer, 'Markdown', reply_markup=notfic_ikeyboard(query.message.chat.id))
+    try:
+        del_notif(query.data, query.message.chat.id)
+        await query.message.edit_text(notification_answer, 'Markdown', reply_markup=notfic_ikeyboard(query.message.chat.id))
+    except:
+        await query.message.answer('Якщо ви заблукали напишіть /help')
     
 
 
@@ -107,12 +71,12 @@ async def value_query(query: types.CallbackQuery, state: FSMContext):
 @dp.message_handler(commands=['search'], state = '*')
 async def shop(message: types.Message, state: FSMContext):
     await Form.search.set()
-    await message.answer('Введите точное название предмета\n/exit - выход:',reply_markup=exit_keyboard)
+    await message.answer('Введите точное название предмета\n/exit - выход:')
 
 @dp.message_handler(commands=['exit'], state = Form.search)
 async def shop(message: types.Message, state: FSMContext):
     await state.finish()
-    await message.answer('Вы вышли из поиска предметов',reply_markup=main_keyboard)
+    await message.answer('Вы вышли из поиска предметов')
 
 @dp.message_handler(state = Form.search)
 async def shop(message: types.Message, state: FSMContext):
@@ -155,10 +119,10 @@ async def value_query(query: types.CallbackQuery, state: FSMContext):
         await query.message.edit_text('Введить ціну(1500) або від та до(1000-1500) якої ціни предмети вас цікавлять, clear - скидання фільтра', reply_markup=clear_filt_shop_keyboard)
     elif query.data == 'type':
         await Form.shop_type_filt.set()
-        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=type_filt_ikeyboard)
+        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=inline_type(filt_dict))
     elif query.data == 'rarity':   
         await Form.shop_rarity_filt.set()
-        await query.message.edit_text(answer_rarity_shop(filt_dict), reply_markup=inline_rarity())
+        await query.message.edit_text(answer_rarity_shop(filt_dict), reply_markup=inline_rarity(filt_dict))
     elif query.data == 'result':
         await state.finish()
         await query.message.edit_text(result_shop(filt_dict))
@@ -178,7 +142,7 @@ async def type_query(query: types.CallbackQuery, state: FSMContext):
             filt_dict['rarity'].add(query.data)
         else:
             filt_dict['rarity'] = {query.data}
-        await query.message.edit_text(answer_rarity_shop(filt_dict), reply_markup=inline_rarity())
+        await query.message.edit_text(answer_rarity_shop(filt_dict), reply_markup=inline_rarity(filt_dict))
         
 @dp.callback_query_handler(state=Form.shop_type_filt)
 async def type_query(query: types.CallbackQuery, state: FSMContext):
@@ -196,7 +160,7 @@ async def type_query(query: types.CallbackQuery, state: FSMContext):
             filt_dict['type'].add(query.data)
         else:
             filt_dict['type'] = {query.data}
-        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=type_filt_ikeyboard)
+        await query.message.edit_text(answer_type_shop(filt_dict), reply_markup=inline_type(filt_dict))
 
 @dp.callback_query_handler(state=Form.shop_cost_filt)
 async def cost_query(query: types.CallbackQuery, state: FSMContext):
@@ -217,10 +181,16 @@ async def cost_filt_shop(message: types.Message, state: FSMContext):
     await message.answer(answerfiltshop(filt_dict), reply_markup= shop_ikeyboard)
 """!!!END SHOP!!!"""   
 
-@dp.message_handler()
+@dp.message_handler(state='*')
 async def echo(message: types.Message):
-    pass
+    await message.answer('Якщо ви заблукали напишіть /help')
+    
+@dp.callback_query_handler(state='*')
+async def echo(message: types.Message):
+    await message.answer('Якщо ви заблукали напишіть /help')
     
 
 if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.create_task(start())
     executor.start_polling(dp, skip_updates=True)

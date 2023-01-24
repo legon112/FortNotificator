@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 import json
 import requests
@@ -209,7 +208,7 @@ def inline_type(filt_dict : dict):
     all_type = {'outfit' : "Наряд", 'glider' : 'Дельтаплан', 'pickaxe' : 'Кирка', 'emote' : 'Емоція', 'wrap' : 'Обгортка', 'backpack' : 'Наплічник', 'contrail' : 'Слід'}
     type_ikeyboard = types.InlineKeyboardMarkup()
     type_ikeyboard.add(types.InlineKeyboardButton('Очистити фільтр', callback_data='clear'))
-    if filt_dict and filt_dict['type']:
+    if filt_dict and 'type' in filt_dict.keys():
         for i in all_type.keys():
             if i in filt_dict['type']:
                 continue
@@ -225,7 +224,7 @@ def inline_rarity(filt_dict : dict):
     rarity_ikeyboard = types.InlineKeyboardMarkup()
     
     rarity_ikeyboard.add(types.InlineKeyboardButton('Очистити фільтр', callback_data='clear'))
-    if filt_dict and filt_dict['rarity']:
+    if filt_dict and 'rarity' in filt_dict.keys():
         for i in all_rarity_dict.keys():
             if i in filt_dict['rarity']:
                 continue
@@ -278,21 +277,3 @@ def answer_type_shop(filt : dict) -> str:
         answers_list.append(f'Поточні фільтри:\n{filt_message}')
     answers_list.append('\nОберіть які типи предметів вас цікавять:')
     return ''.join(answers_list)
-        
-
-def inlineshop():
-    pass
-
-
-def test(fa = '123'):
-    print(fa)
-    return
-
-
-
-
-
-
-
-
-
